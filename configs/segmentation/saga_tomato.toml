@@ -1,0 +1,23 @@
+[paths]
+gaussian_ply = "/home/linzz/Desktop/colmapcut_recon/data/scenes/roman_tomato_02/08_asset_assembly/plant_strict.ply"
+saga_mask = ""
+saga_mask_source_ply = "/home/linzz/Desktop/realplantrecon_romantomato2/metric_scene/3dgrut_out/plant_metric_original_coords.ply"
+ground_gaussian_ply = "/home/linzz/Desktop/colmapcut_recon/data/scenes/roman_tomato_02/08_asset_assembly/ground_gaussians.ply"
+output_directory = "/home/linzz/Desktop/colmapcut_recon/data/scenes/roman_tomato_02/09_tomato_entities"
+
+[extraction]
+voxel_size_m = 0.008
+minimum_seed_points = 18
+minimum_entity_points = 40
+maximum_component_span_m = 0.115
+minimum_radius_m = 0.018
+maximum_radius_m = 0.060
+ellipsoid_padding_m = 0.008
+removal_scale = 1.12
+opacity_minimum = 0.10
+red_minimum = 0.45
+red_margin = 0.12
+minimum_height_m = 0.015
+tomato_density_kg_m3 = 850.0
+initially_kinematic = true
+saga_require_ripe_colour_seed = true

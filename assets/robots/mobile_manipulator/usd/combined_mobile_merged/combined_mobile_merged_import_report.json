@@ -1,0 +1,12 @@
+{
+  "urdf": "/home/linzz/Desktop/colmapcut_recon/assets/robots/mobile_manipulator/urdf/combined_mobile.urdf",
+  "usd": "/home/linzz/Desktop/colmapcut_recon/assets/robots/mobile_manipulator/usd/combined_mobile_merged/combined_mobile_merged.usd",
+  "imported_prim_path": "/my_combined_robot/base_footprint",
+  "default_prim": "/my_combined_robot",
+  "articulation_roots": [
+    "/my_combined_robot/base_footprint/base_footprint"
+  ],
+  "world_fixed_joints": [],
+  "camera_prims": [],
+  "note": "The end-effector Camera prim is authored at runtime, so camera_prims is expected to be empty."
+}

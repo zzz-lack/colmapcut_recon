@@ -1,0 +1,8 @@
+mode: images
+device: null
+output_format: jpg
+image_interval_seconds: 1.0
+video:
+  codec: null
+  fps: 30
+  duration_seconds: null

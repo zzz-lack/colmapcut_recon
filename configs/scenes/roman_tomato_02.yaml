@@ -1,0 +1,28 @@
+scene_id: roman_tomato_02
+source_manifest: data/scenes/roman_tomato_02/00_import/source_manifest.yaml
+coordinate_system:
+  unit: meter
+  up_axis: Z
+  origin: plant_base
+asset_assembly:
+  plant_selection: positive_mask
+  minimum_membership_ratio: 0.999
+  ground_method: adaptive_heightfield
+  ground_xy_bounds_m:
+    x: [-0.1, 0.1]
+    y: [-0.1, 0.1]
+  adaptive_heightfield:
+    grid_size_m: 0.02
+    initial_ground_height_m: 0.0
+    surface_quantile: 0.15
+    max_slope_degrees: 40.0
+    seed_tolerance_steps: 2.0
+    smoothing_iterations: 3
+    ground_band_quantile: 0.90
+    ground_band_mad_multiplier: 3.0
+    gaussian_sigma_multiplier: 5.0
+    max_sigma_to_band_ratio: 2.0
+    min_points_per_cell: 5
+  merge:
+    strategy: plant_first_exact_xyz_union
+  output_directory: data/scenes/roman_tomato_02/08_asset_assembly

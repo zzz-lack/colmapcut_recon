@@ -1,0 +1,22 @@
+version: 1
+scene: plant_001
+tools: configs/tools.local.yaml
+stages:
+  - capture
+  - extract_frames
+  - run_colmap
+  - generate_masks
+  - filter_colmap_points
+  - align_scale_axes
+  - composite_images
+  - prepare_datasets
+  - train_3dgrut
+  - train_gsplat
+  - clean_gaussians
+  - export_simulation_asset
+policies:
+  raw_capture_read_only: true
+  training_output_root: runs
+  final_output_root: outputs
+  shared_aligned_model: true
+  shared_composite_images: true

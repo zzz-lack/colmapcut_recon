@@ -1,0 +1,28 @@
+diff --git a/extract_mesh.py b/extract_mesh.py
+index 8652751..8f8bcbe 100644
+--- a/extract_mesh.py
++++ b/extract_mesh.py
+@@ -43,0 +44,4 @@ if __name__ == "__main__":
++    parser.add_argument('--opacity_threshold', type=float, default=0.5,
++                        help='Activated opacity threshold used before meshing.')
++    parser.add_argument('--skip_background', type=str2bool, default=False,
++                        help='If True, discard surface points outside the foreground bounding box.')
+diff --git a/sugar_extractors/coarse_mesh.py b/sugar_extractors/coarse_mesh.py
+index 414a0f2..242c68f 100644
+--- a/sugar_extractors/coarse_mesh.py
++++ b/sugar_extractors/coarse_mesh.py
+@@ -23 +23 @@ def extract_mesh_from_coarse_sugar(args):
+-    low_opacity_gaussian_pruning_threshold = 0.5
++    low_opacity_gaussian_pruning_threshold = args.opacity_threshold
+@@ -363,0 +364,3 @@ def extract_mesh_from_coarse_sugar(args):
++                if args.skip_background:
++                    bg_mask = torch.zeros_like(fg_mask, dtype=torch.bool)
++
+@@ -436,0 +440 @@ def extract_mesh_from_coarse_sugar(args):
++                decimated_o3d_bg_mesh = None
+@@ -546,0 +551,3 @@ def extract_mesh_from_coarse_sugar(args):
++                if args.skip_background:
++                    bg_mask = torch.zeros_like(fg_mask, dtype=torch.bool)
++
+@@ -614,0 +622 @@ def extract_mesh_from_coarse_sugar(args):
++                decimated_o3d_bg_mesh = None

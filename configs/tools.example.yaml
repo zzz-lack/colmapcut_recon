@@ -1,0 +1,26 @@
+# 复制为 tools.local.yaml 后填写本机地址；不要提交本机绝对路径。
+# Copy to tools.local.yaml and enter machine-local paths; do not commit local absolute paths.
+colmap:
+  repository: /path/to/colmap
+  executable: /path/to/colmap
+  python: /path/to/colmap/environment/bin/python
+
+ffmpeg:
+  executable: /path/to/ffmpeg
+  ffprobe: /path/to/ffprobe
+
+segment_anything_3d:
+  repository: /path/to/SegmentAnything3D
+  python: /path/to/sa3d/environment/bin/python
+
+threedgrut:
+  repository: /path/to/3dgrut
+  python: /path/to/3dgrut/environment/bin/python
+
+gsplat:
+  repository: /path/to/gsplat
+  python: /path/to/gsplat/environment/bin/python
+
+sugar:
+  repository: /path/to/SuGaR
+  python: /path/to/sugar/environment/bin/python

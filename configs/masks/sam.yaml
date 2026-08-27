@@ -1,0 +1,10 @@
+backend: segment_anything_3d
+checkpoint: null
+device: cuda
+prompt_strategy: null
+refinement:
+  enabled: true
+  min_component_area: null
+voting:
+  min_visible_views: 2
+  foreground_ratio_threshold: 0.5

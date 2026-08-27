@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "colmapcut-recon"
+version = "0.1.0"
+description = "Pipeline scaffolding for plant 3D reconstruction"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+alignment = [
+  "numpy>=2.0",
+  "opencv-contrib-python-headless>=4.10",
+  "pycolmap>=3.11",
+]
+gaussians = [
+  "numpy>=1.24",
+  "plyfile>=1.0",
+  "tomli>=2.0; python_version < '3.11'",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

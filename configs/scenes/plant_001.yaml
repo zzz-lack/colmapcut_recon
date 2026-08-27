@@ -1,0 +1,11 @@
+scene_id: plant_001
+data_root: data/scenes/plant_001
+capture_config: configs/capture/camera_01.yaml
+frame_sampling_config: configs/preprocessing/video_sampling.yaml
+colmap_config: configs/colmap/default.yaml
+mask_config: configs/masks/sam.yaml
+alignment_config: configs/alignment/default.yaml
+training_configs:
+  threedgrut: configs/training/3dgrut.yaml
+  gsplat: configs/training/gsplat.yaml
+fixed_background_rgb: [255, 255, 255]

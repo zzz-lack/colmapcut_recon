@@ -1,0 +1,6 @@
+backend: gsplat
+enabled: false
+dataset_stage: 07_datasets/gsplat
+run_root: runs
+background_color: [1.0, 1.0, 1.0]
+extra_args: []

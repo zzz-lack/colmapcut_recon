@@ -1,0 +1,47 @@
+api_version: 1.0
+
+cspace:
+  - joint1
+  - joint2
+  - joint3
+  - joint4
+  - joint5
+  - joint6
+
+# A conservative non-singular camera-inspection pose. It must be tuned in Isaac Sim.
+default_q: [0.0, 0.35, 1.1, 0.0, 0.75, 0.0]
+
+acceleration_limits: [8.0, 8.0, 8.0, 12.0, 12.0, 12.0]
+jerk_limits: [800.0, 800.0, 800.0, 1200.0, 1200.0, 1200.0]
+
+# Lula only controls the Lite6 arm. Wheel motion is handled by the orbit controller.
+cspace_to_urdf_rules:
+  - {name: front_left_wheel_joint, rule: fixed, value: 0.0}
+  - {name: rear_left_wheel_joint, rule: fixed, value: 0.0}
+  - {name: front_right_wheel_joint, rule: fixed, value: 0.0}
+  - {name: rear_right_wheel_joint, rule: fixed, value: 0.0}
+
+# Coarse first-pass spheres; refine these in Isaac Sim's Robot Description Editor.
+collision_spheres:
+  - link_base:
+      - {center: [-0.01, 0.0, 0.08], radius: 0.10}
+  - link1:
+      - {center: [0.0, 0.02, -0.01], radius: 0.075}
+  - link2:
+      - {center: [0.02, 0.0, 0.09], radius: 0.052}
+      - {center: [0.10, 0.0, 0.09], radius: 0.052}
+      - {center: [0.18, 0.0, 0.09], radius: 0.052}
+      - {center: [0.23, 0.0, 0.09], radius: 0.052}
+  - link3:
+      - {center: [0.00, 0.0, 0.0], radius: 0.052}
+      - {center: [0.06, 0.0, 0.0], radius: 0.052}
+      - {center: [0.12, 0.0, 0.0], radius: 0.052}
+  - link4:
+      - {center: [0.0, -0.02, 0.00], radius: 0.052}
+      - {center: [0.0, -0.04, -0.07], radius: 0.052}
+      - {center: [0.0, -0.06, -0.14], radius: 0.052}
+      - {center: [0.0, -0.08, -0.19], radius: 0.052}
+  - link5:
+      - {center: [0.0, 0.0, 0.0], radius: 0.052}
+  - link6:
+      - {center: [0.0, 0.0, -0.012], radius: 0.045}

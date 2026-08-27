@@ -1,0 +1,6 @@
+camera_id: camera_01
+backend: null
+device: null
+resolution: null
+intrinsics: null
+notes: "TODO: record camera-specific settings without embedding captured data."

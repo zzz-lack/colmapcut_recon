@@ -1,0 +1,22 @@
+transform_convention: "world_point = scale * rotation * colmap_point + translation"
+unit: meter
+up_axis: Z
+method: apriltag
+input_model_stage: 04_colmap_foreground/sparse/0
+image_stage: 01_frames/images
+output_stage: 05_alignment
+scale_method: apriltag_black_square_edge
+axes_method: coplanar_apriltag_plane_and_tag_centers
+origin_method: mean_apriltag_centers
+apply_to: [sparse_points, cameras, rigs, frames]
+apriltag:
+  family: 36h11
+  tag_ids: [0, 1, 2, 3]
+  # Measured black-square size recorded by plantwithtag_reconstruction.
+  tag_size_m: 0.0998
+  tag_sizes_m: {}
+  x_axis_tags: [3, 0]
+  reprojection_threshold_px: 3.0
+  ransac_trials: 1200
+  min_observations: 5
+  diagnostic_images: 6

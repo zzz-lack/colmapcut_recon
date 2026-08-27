@@ -1,0 +1,6 @@
+[submodule "third_party/SegAnyGAussians"]
+	path = third_party/SegAnyGAussians
+	url = https://github.com/Jumpat/SegAnyGAussians.git
+[submodule "assets/robots/mobile_manipulator/urdf/terrasentia_gazebo"]
+	path = assets/robots/mobile_manipulator/urdf/terrasentia_gazebo
+	url = https://github.com/jrcuaranv/terrasentia_gazebo.git

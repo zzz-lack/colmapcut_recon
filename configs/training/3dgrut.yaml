@@ -1,0 +1,12 @@
+backend: threedgrut
+dataset_stage: 07_datasets/3dgrut
+images_stage: 06_composite/images
+sparse_model_stage: 05_alignment/sparse/0
+run_root: runs
+load_loss_mask: false
+background_color: [1.0, 1.0, 1.0]
+app_config: apps/colmap_3dgut.yaml
+experiment_name: ""
+downsample_factor: 1
+export_ply: true
+extra_args: []

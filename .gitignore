@@ -1,0 +1,48 @@
+# Local machine configuration
+configs/tools.local.yaml
+.git-local/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+
+# Logs and large generated assets
+data/
+runs/
+outputs/
+log/
+logs/
+*.log
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.jpg
+*.jpeg
+*.png
+*.tif
+*.tiff
+*.bin
+*.ply
+*.usd
+*.usda
+*.usdc
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+*.db
+*.npy
+*.npz

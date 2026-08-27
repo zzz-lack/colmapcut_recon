@@ -1,0 +1,10 @@
+camera_model: OPENCV
+single_camera: true
+matcher: sequential
+use_gpu: true
+image_root_stage: 01_frames
+output_stage: 02_colmap_full
+extra_args: []
+feature_extra_args: []
+matcher_extra_args: []
+mapper_extra_args: []

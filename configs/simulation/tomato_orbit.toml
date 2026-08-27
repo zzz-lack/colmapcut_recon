@@ -1,0 +1,70 @@
+[assets]
+robot_usd = "/home/linzz/Desktop/colmapcut_recon/assets/robots/mobile_manipulator/usd/combined_mobile_merged/combined_mobile_merged.usd"
+robot_urdf = "/home/linzz/Desktop/colmapcut_recon/assets/robots/mobile_manipulator/urdf/combined_mobile.urdf"
+robot_descriptor = "/home/linzz/Desktop/colmapcut_recon/assets/robots/mobile_manipulator/lula/robot_descriptor.yaml"
+environment_usdz = "/home/linzz/Desktop/colmapcut_recon/data/scenes/roman_tomato_02/10_simulation_asset/roman_tomato_02_without_tomatoes.usdz"
+tomato_entities_usd = "/home/linzz/Desktop/colmapcut_recon/data/scenes/roman_tomato_02/09_tomato_entities/tomato_entities.usda"
+
+[prims]
+robot = "/World/Robot"
+environment = "/World/Environment"
+tomato_entities = "/World/TomatoEntities"
+
+[scene]
+plant_center_xyz = [0.0, 0.0, 0.45]
+robot_start_angle_rad = 3.141592653589793
+robot_start_z_m = 0.14
+physics_dt_s = 0.016666666666666666
+rendering_dt_s = 0.03333333333333333
+
+[path]
+mode = "square"
+
+[drive]
+# "kinematic" gives repeatable square-path inspection while the imported
+# skid-steer wheel/contact model is being calibrated. Use "wheel" to exercise
+# the raw PhysX velocity drives.
+mode = "kinematic"
+
+[orbit]
+radius_m = 0.78
+tangential_speed_mps = 0.08
+direction = 1
+radial_gain = 1.5
+heading_gain = 2.5
+max_linear_speed_mps = 0.16
+max_angular_speed_rps = 0.6
+wheel_radius_m = 0.09
+wheel_separation_m = 0.259146
+
+[square]
+# The collision ground spans [-1, 1] m. A 0.60 m centerline leaves clearance
+# for the robot footprint and keeps the 0.45 m wrist-camera target reachable.
+half_extent_m = 0.60
+linear_speed_mps = 0.12
+direction = 1
+# Switch edges within 3 cm of each mathematical vertex.
+corner_tolerance_m = 0.03
+heading_gain = 2.5
+turn_in_place_threshold_rad = 0.35
+# Zero gives an in-place turn in the default kinematic mode. After wheel/contact
+# calibration, set a small positive value for rolling turns in wheel mode.
+corner_linear_speed_mps = 0.0
+max_angular_speed_rps = 0.60
+
+[arm]
+end_effector_frame = "eef_camera_frame"
+initial_standoff_m = 0.50
+inspection_standoff_m = 0.45
+inspection_height_m = 0.55
+approach_duration_s = 6.0
+command_period_steps = 3
+# Permit a modest look-at error before falling back to position-only IK. The
+# fallback keeps the camera standoff reachable through square-path corners.
+orientation_tolerance_rad = 0.25
+
+[camera]
+name = "eef_camera"
+frequency_hz = 15
+resolution = [640, 480]
+warmup_frames = 5
