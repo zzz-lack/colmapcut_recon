@@ -1,0 +1,15 @@
+backend: threedgrut
+dataset_stage: 07_datasets/3dgrut
+images_stage: 01_frames/images
+sparse_model_stage: 05_alignment/sparse/0
+run_root: runs
+load_loss_mask: false
+background_color: [1.0, 1.0, 1.0]
+app_config: apps/colmap_3dgut.yaml
+experiment_name: smoke_100
+downsample_factor: 1
+iterations: 100
+num_workers: 4
+export_ply: true
+extra_args:
+  - "checkpoint.iterations=[100]"

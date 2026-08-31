@@ -71,9 +71,12 @@ def test_extracts_entities_and_static_plant(tmp_path: Path) -> None:
     assert manifest["statistics"]["entity_count"] == 2
     assert (output / "tomato_entities.usda").is_file()
     assert (output / "plant_without_tomatoes.ply").is_file()
+    assert (output / "meshes" / "tomato_001.ply").is_file()
     assert not (stale_directory / "tomato_999.ply").exists()
     assert (stale_directory / "keep.txt").is_file()
     assert len(list(stale_directory.glob("tomato_*.ply"))) == 2
     text = (output / "tomato_entities.usda").read_text()
     assert "PhysicsRigidBodyAPI" in text
     assert "tomato:stemAnchor" in text
+    assert 'def Mesh "Visual"' in text
+    assert "faceVertexIndices" in text

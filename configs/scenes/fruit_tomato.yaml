@@ -1,0 +1,13 @@
+scene_id: fruit_tomato
+data_root: data/scenes/fruit_tomato
+capture_config: configs/capture/camera_01.yaml
+frame_sampling_config: configs/preprocessing/video_sampling_fruit_tomato.yaml
+colmap_config: configs/colmap/default.yaml
+alignment_config: configs/alignment/fruit_tomato_36h11.yaml
+training_configs:
+  threedgrut: configs/training/3dgrut_fruit_tomato_smoke.yaml
+simulation_asset_config: configs/simulation/fruit_tomato_asset.yaml
+
+# This scene intentionally skips mask generation, foreground sparse-point
+# filtering, and image compositing.  Training uses the original sampled frames.
+mask_free_pipeline: true

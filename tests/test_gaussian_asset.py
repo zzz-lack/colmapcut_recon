@@ -14,6 +14,11 @@ from colmapcut_recon.postprocessing.clean_gaussians import (
     GroundBounds,
     assemble_ground_asset,
 )
+from colmapcut_recon.postprocessing.remove_background_gaussians import (
+    SceneBounds,
+    SeparationOutputs,
+    separate_scene_gaussians,
+)
 
 
 STANDARD_DTYPE = np.dtype(
@@ -181,3 +186,61 @@ def test_adaptive_heightfield_follows_slope_and_subtracts_plant(tmp_path: Path) 
     assert report["selection"]["ground"]["excluded_plant_gaussians_in_footprint"] == 2
     assert report["outputs"]["cross_component_xyz_overlap"] == 0
     assert len(combined) == len(plant) + len(ground)
+
+
+def test_geometric_separation_partitions_background_ground_and_plant(
+    tmp_path: Path,
+) -> None:
+    records: list[tuple[float, float, float]] = []
+    for y in np.linspace(-0.4, 0.4, 5):
+        for x in np.linspace(-0.4, 0.4, 5):
+            for offset in (-0.02, -0.01, 0.0, 0.01, 0.02):
+                records.append((float(x), float(y), float(offset)))
+            records.append((float(x), float(y), 0.5))
+    records.extend(((2.0, 2.0, 0.0), (-2.0, -2.0, 0.0)))
+    full = np.zeros(len(records), dtype=STANDARD_DTYPE)
+    full["rot_0"] = 1.0
+    full["opacity"] = 4.0
+    for name in ("scale_0", "scale_1", "scale_2"):
+        full[name] = np.log(0.005)
+    xyz = np.asarray(records, dtype=np.float32)
+    for index, name in enumerate(("x", "y", "z")):
+        full[name] = xyz[:, index]
+    source = tmp_path / "full_scene.ply"
+    _write_ply(source, full)
+    outputs = SeparationOutputs(
+        plant=tmp_path / "plant.ply",
+        ground=tmp_path / "ground.ply",
+        background=tmp_path / "background.ply",
+        combined=tmp_path / "combined.ply",
+        report=tmp_path / "separation.json",
+    )
+
+    report = separate_scene_gaussians(
+        source,
+        outputs,
+        scene_bounds=SceneBounds(
+            x_min=-0.5,
+            x_max=0.5,
+            y_min=-0.5,
+            y_max=0.5,
+            z_min=-0.1,
+            z_max=0.8,
+        ),
+        heightfield=AdaptiveHeightfieldConfig(
+            grid_size_m=0.2,
+            min_points_per_cell=3,
+            smoothing_iterations=1,
+            surface_quantile=0.4,
+        ),
+    )
+
+    plant = PlyData.read(outputs.plant)["vertex"].data
+    ground = PlyData.read(outputs.ground)["vertex"].data
+    background = PlyData.read(outputs.background)["vertex"].data
+    combined = PlyData.read(outputs.combined)["vertex"].data
+    assert len(plant) == 25
+    assert len(ground) == 125
+    assert len(background) == 2
+    assert len(combined) == 150
+    assert report["partition"]["disjoint"] is True

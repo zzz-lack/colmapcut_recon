@@ -6,7 +6,32 @@
 
 一套面向植物的、可复现的三维重建流水线骨架。项目计划覆盖相机采集、视频抽帧与筛选、COLMAP 相机标定和稀疏重建、SAM/SegmentAnything3D 植物分割、跨视角点云过滤、真实尺度与坐标系对齐、高斯重建、背景清理，以及 PLY / ParticleField USD / 可选代理 mesh 导出。
 
-> 当前状态：大部分流水线仍是占位骨架；现有高斯的自适应地面提取与植物/地面组合已经实现。此仓库不会安装、复制或修改 COLMAP、SegmentAnything3D、3DGRUT 或 gsplat。
+> 当前状态：无遮罩路径“视频抽帧 → COLMAP → AprilTag 米制对齐 → 3DGRUT → 后训练背景/地面/植物分离 → 地面碰撞 mesh → 果实 mesh/刚体 → NuRec USDZ”已经实跑并接入可恢复的一键入口。前景掩膜辅助训练、完整语义分割和 gsplat 训练仍是占位或独立试验。此仓库不会安装、复制或修改外部项目。
+
+## 已跑通的无遮罩流水线
+
+`fruit_tomato.mp4` 的场景配置位于 `configs/scenes/fruit_tomato.yaml`。以下命令从视频运行到仿真 USDZ；默认开启恢复模式，已有且完整的阶段会被跳过：
+
+```bash
+uv run --extra alignment python scripts/run_pipeline.py \
+  --video /home/linzz/Desktop/simple_photo_capture/video/fruit_tomato.mp4
+```
+
+使用 `--no-resume` 可要求各阶段重新运行，但各适配器会保护已有输出并拒绝覆盖。最终资产为 `data/scenes/fruit_tomato/11_simulation_asset/fruit_tomato_simulation.usdz`，总清单写入场景数据目录的 `pipeline_manifest.json`。外部项目和解释器路径统一在 `configs/tools.local.yaml` 修改；空间裁剪、地面网格与导出参数在 `configs/simulation/fruit_tomato_asset.yaml` 修改。
+
+Isaac Sim 5.x 使用包内 NuRec volume 渲染静态植物/地面，并使用标准 USD Physics 碰撞。Genesis 可使用闭合地面 mesh、果实三角 mesh、质量和碰撞代理；NVIDIA NuRec 是专用视觉 schema，Genesis 通常会忽略该高斯视觉层。当前 fruit 示例只有 100 次训练，并用成熟果实颜色引导生成 mesh，只用于验证资产链路，不能代表最终分割精度。
+
+## 仓库内可运行示例
+
+`examples/roman_tomato2/input/roman_tomato2_example.mp4` 是从完整 4K/60 fps 手机视频压缩并清除 GPS/拍摄设备元数据后的公开示例：保留完整 94.995 秒相机轨迹，编码为 1920×1080、29.97 fps H.264，无音频，大小 20,304,540 字节（约 19.36 MiB）。它低于 [GitHub 网页单文件 25 MiB 的上传限制](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository)，不需要 Git LFS。
+
+```bash
+uv run --extra alignment python scripts/run_pipeline.py \
+  --scene-config configs/scenes/roman_tomato2_example.yaml \
+  --video examples/roman_tomato2/input/roman_tomato2_example.mp4
+```
+
+本机已经使用该压缩文件完成十阶段试运行：95 张采样图像、52 张图像的 COLMAP 主模型、AprilTag 米制对齐、100 次 3DGRUT 冒烟训练、闭合地面碰撞 mesh、1 个颜色引导的果实刚体，以及通过 OpenUSD 验证的组合 USDZ。派生数据和训练结果仍由 `.gitignore` 排除，克隆仓库后可从示例视频重新生成。压缩参数、SHA-256、逐阶段命令和实跑指标见 [examples/roman_tomato2/README.md](examples/roman_tomato2/README.md)。
 
 ## 第一版处理顺序
 
@@ -33,6 +58,19 @@ world_point = scale * rotation * colmap_point + translation
 
 完整的外部库清单、Python 包分组以及每类路径应该在哪个文件修改，见中英双语文档 [docs/EXTERNAL_DEPENDENCIES.md](docs/EXTERNAL_DEPENDENCIES.md)。
 
+当前无遮罩示例的主要外部依赖及官方仓库如下：
+
+| 依赖 | 用途 | GitHub |
+| --- | --- | --- |
+| FFmpeg/ffprobe | 视频压缩、探测与抽帧 | [FFmpeg/FFmpeg](https://github.com/FFmpeg/FFmpeg) |
+| COLMAP/pycolmap | 特征、匹配、稀疏重建与模型变换 | [colmap/colmap](https://github.com/colmap/colmap) |
+| OpenCV | AprilTag 36h11 检测 | [opencv/opencv](https://github.com/opencv/opencv) |
+| NVIDIA 3DGRUT | 3DGUT 训练、PLY 与 NuRec 导出 | [nv-tlabs/3dgrut](https://github.com/nv-tlabs/3dgrut) |
+| Open3D | 地面碰撞 mesh 验证 | [isl-org/Open3D](https://github.com/isl-org/Open3D) |
+| OpenUSD | USD/USDZ 编写与验证 | [PixarAnimationStudios/OpenUSD](https://github.com/PixarAnimationStudios/OpenUSD) |
+
+SAM、SegmentAnything3D/SegAnyGAussians、SuGaR、gsplat、Isaac Sim 与 Genesis 属于可选分割、网格实验、替代训练后端或下游仿真工具；完整链接和“必需/可选/占位”状态也列在外部依赖文档中。各外部项目保持独立安装，本机地址只在 `configs/tools.local.yaml` 修改。
+
 全部说明文件的中英双语索引见 [docs/README.md](docs/README.md)。
 
 COLMAP 与 3DGRUT 已通过参数安全的适配脚本接入：COLMAP 分阶段生成数据库和稀疏模型，3DGRUT 数据适配器以符号链接组装标准 `images/ + sparse/0/` 输入，训练结果严格写入 `runs/`。目录契约、配置项、预检与命令示例见 [docs/COLMAP_3DGRUT_INTEGRATION.md](docs/COLMAP_3DGRUT_INTEGRATION.md)。
@@ -55,15 +93,19 @@ COLMAP 与 3DGRUT 已通过参数安全的适配脚本接入：COLMAP 分阶段�
 | `07_datasets` | 合成图像、已对齐 COLMAP 模型 | 两个后端共享来源的数据集副本 |
 | `runs` | 准备好的训练数据集 | 3DGRUT 与 gsplat 训练产物 |
 | `outputs` | 原始训练产物 | 清理后高斯、PLY、USD、预览、指标 |
+| `08_asset_separation` | 训练后的高斯 PLY | 植物、地面、丢弃背景和组合高斯 |
+| `09_ground_collision` | 地面高斯 | 闭合、流形、米制地面 PLY/OBJ mesh |
+| `10_fruit_entities` | 植物高斯、SAGA 掩膜或颜色种子 | 果实 mesh、刚体层、无果实静态高斯 |
+| `11_simulation_asset` | 静态高斯、地面 mesh、果实实体 | Isaac/Genesis 仿真 USDZ 与验证清单 |
 
 `00_capture` 中的原始数据视为只读。任何派生结果必须进入后续编号目录；训练产物不得写回 `data`。当前为避免失效链接，两个数据集目录都是普通空目录，未来可改成指向同一来源的符号链接。
 
 ## 使用约定
 
-- `configs/pipeline.yaml` 定义阶段顺序，场景入口位于 `configs/scenes/plant_001.yaml`。
-- `scripts/` 仅作为 CLI 入口，未来调用 `src/colmapcut_recon/` 中的实现。
+- `configs/pipeline_no_masks.yaml` 定义当前已实现的无遮罩阶段顺序，示例场景入口位于 `configs/scenes/fruit_tomato.yaml`。
+- `scripts/` 是 CLI 入口，实现位于 `src/colmapcut_recon/`。
 - `data/` 保存输入及确定性的中间数据，`runs/` 保存训练结果，`outputs/` 保存交付资产。
-- 在实现算法前，不要把这些占位脚本当作可运行流水线。
+- 未列入 `configs/pipeline_no_masks.yaml` 的占位脚本不能视为已实现阶段。
 
 ## 已实现：现有高斯的地面资产组装
 
@@ -80,6 +122,31 @@ SAGA 的 CUDA 13 兼容运行时、稀疏多视角 SAM masks、自动番茄特�
 ## English README
 
 `colmapcut_recon` is a reproducible plant reconstruction pipeline covering video frame sampling, COLMAP sparse reconstruction, SAM/SegmentAnything3D segmentation, cross-view point filtering, metric AprilTag alignment, Gaussian reconstruction, background cleanup, and PLY/USD/simulation-asset export.
+
+The implemented mask-free path—video sampling, COLMAP, metric AprilTag alignment, 3DGRUT, post-training scene separation, ground collision meshing, fruit mesh/rigid-body generation, and NuRec USDZ composition—has been exercised end to end. Mask-assisted training, complete semantic segmentation, and gsplat training remain placeholders or separate experiments.
+
+Run the resumable mask-free pipeline with:
+
+```bash
+uv run --extra alignment python scripts/run_pipeline.py \
+  --video /home/linzz/Desktop/simple_photo_capture/video/fruit_tomato.mp4
+```
+
+Completed stages are skipped by default. Pass `--no-resume` to request a fresh execution; existing-output guards still prevent accidental overwrites. The final package is `data/scenes/fruit_tomato/11_simulation_asset/fruit_tomato_simulation.usdz`. Edit machine-local external paths in `configs/tools.local.yaml`, and edit crop, mesh, and export parameters in `configs/simulation/fruit_tomato_asset.yaml`.
+
+Isaac Sim 5.x renders the packaged NuRec volume and uses the standard USD Physics colliders. Genesis can consume the standard closed ground mesh, fruit triangle meshes, masses, and collision proxies, but normally ignores the NVIDIA-specific NuRec Gaussian visual layer. The checked-in fruit smoke configuration uses only 100 training iterations and colour-guided ripe-fruit bootstrapping; it validates the pipeline rather than final segmentation accuracy.
+
+### Repository example
+
+`examples/roman_tomato2/input/roman_tomato2_example.mp4` is a public example made from the full 4K/60 fps phone capture with GPS and device metadata removed. It retains the complete 94.995-second camera path at 1920×1080, 29.97 fps H.264, has no audio, and is 20,304,540 bytes (about 19.36 MiB), below [GitHub's 25 MiB browser-upload limit](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository), so ordinary Git can track it without Git LFS.
+
+```bash
+uv run --extra alignment python scripts/run_pipeline.py \
+  --scene-config configs/scenes/roman_tomato2_example.yaml \
+  --video examples/roman_tomato2/input/roman_tomato2_example.mp4
+```
+
+The exercised ten-stage run produced 95 sampled images, a 52-image primary COLMAP model, metric AprilTag alignment, a 100-iteration 3DGRUT smoke reconstruction, a closed ground collider, one colour-bootstrapped fruit rigid body, and a combined USDZ that passed OpenUSD validation. Generated data and runs remain ignored and can be reproduced from the committed video. See the [bilingual example guide](examples/roman_tomato2/README.md) for compression settings, SHA-256, stage-by-stage commands, and measured results.
 
 The coordinate transform convention is:
 
@@ -107,6 +174,8 @@ Raw capture data is read-only. Deterministic intermediate data belongs under `da
 Third-party repositories remain independently installed. Edit machine-local repository, executable, and Python paths in `configs/tools.local.yaml`; use `configs/tools.example.yaml` as the committed template. Python dependency constraints live in `pyproject.toml`, with resolved versions in `uv.lock`.
 
 See the bilingual [external dependency and path guide](docs/EXTERNAL_DEPENDENCIES.md) for the complete library inventory, configuration keys, and specialist workflow exceptions.
+
+The main dependencies for the current mask-free example are [FFmpeg](https://github.com/FFmpeg/FFmpeg), [COLMAP/pycolmap](https://github.com/colmap/colmap), [OpenCV](https://github.com/opencv/opencv), [NVIDIA 3DGRUT](https://github.com/nv-tlabs/3dgrut), [Open3D](https://github.com/isl-org/Open3D), and [OpenUSD](https://github.com/PixarAnimationStudios/OpenUSD). SAM/SegmentAnything3D/SegAnyGAussians, SuGaR, gsplat, Isaac Sim, and Genesis are optional segmentation, meshing, alternative-backend, or downstream simulation projects. Their links and implemented/optional/placeholder status are listed in the dependency guide. Edit all machine-local installation paths only in `configs/tools.local.yaml`.
 
 See [docs/README.md](docs/README.md) for the bilingual documentation index.
 

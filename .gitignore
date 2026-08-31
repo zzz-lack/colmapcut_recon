@@ -26,6 +26,7 @@ log/
 logs/
 *.log
 *.mp4
+!examples/roman_tomato2/input/roman_tomato2_example.mp4
 *.mov
 *.avi
 *.mkv

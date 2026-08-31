@@ -1,0 +1,22 @@
+version: 1
+scene: fruit_tomato
+tools: configs/tools.local.yaml
+stages:
+  - extract_frames
+  - run_colmap
+  - align_scale_axes
+  - prepare_3dgrut_dataset
+  - train_3dgrut
+  - separate_gaussians
+  - build_ground_collision_mesh
+  - extract_fruit_meshes
+  - export_static_usdz
+  - compose_simulation_usdz
+policies:
+  raw_capture_read_only: true
+  use_original_images_for_training: true
+  skip_masks: true
+  skip_foreground_sparse_filtering: true
+  skip_compositing: true
+  training_output_root: runs
+  simulation_target: [isaac_sim, genesis]

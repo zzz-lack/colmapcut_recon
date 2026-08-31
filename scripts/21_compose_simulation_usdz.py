@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI entry point for post-training geometric Gaussian separation."""
+"""CLI entry point for the combined environment and fruit USDZ package."""
 
 from __future__ import annotations
 
@@ -10,10 +10,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from colmapcut_recon.postprocessing.remove_background_gaussians import main  # noqa: E402
+from colmapcut_recon.export.compose_simulation_asset import main  # noqa: E402
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-# TODO: Add argument parsing and delegate to the src package.

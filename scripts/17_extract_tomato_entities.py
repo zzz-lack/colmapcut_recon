@@ -32,11 +32,19 @@ def parse_args() -> argparse.Namespace:
         default=PROJECT_ROOT / "configs/segmentation/saga_tomato.toml",
     )
     parser.add_argument("--mask", type=Path, help="SAGA .pt/.npy per-Gaussian mask")
+    parser.add_argument("--gaussians", type=Path, help="Override paths.gaussian_ply")
+    parser.add_argument(
+        "--ground-gaussians", type=Path, help="Override paths.ground_gaussian_ply"
+    )
+    parser.add_argument(
+        "--output-directory", type=Path, help="Override paths.output_directory"
+    )
     parser.add_argument(
         "--bootstrap-colour",
         action="store_true",
         help="Use ripe-red Gaussian seeds for commissioning instead of a SAGA mask",
     )
+    parser.add_argument("--overwrite", action="store_true")
     return parser.parse_args()
 
 
@@ -54,8 +62,8 @@ def main() -> int:
             "or explicitly use --bootstrap-colour for commissioning."
         )
     manifest = extract_tomato_entities(
-        Path(paths["gaussian_ply"]),
-        Path(paths["output_directory"]),
+        args.gaussians or Path(paths["gaussian_ply"]),
+        args.output_directory or Path(paths["output_directory"]),
         saga_mask=mask,
         saga_mask_source_ply=(
             Path(paths["saga_mask_source_ply"])
@@ -63,11 +71,14 @@ def main() -> int:
             else None
         ),
         ground_gaussian_ply=(
-            Path(paths["ground_gaussian_ply"])
-            if paths.get("ground_gaussian_ply", "").strip()
+            args.ground_gaussians
+            or Path(paths["ground_gaussian_ply"])
+            if args.ground_gaussians
+            or paths.get("ground_gaussian_ply", "").strip()
             else None
         ),
         config=extraction,
+        overwrite=args.overwrite,
     )
     stats = manifest["statistics"]
     print(

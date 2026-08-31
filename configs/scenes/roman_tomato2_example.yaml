@@ -1,0 +1,12 @@
+scene_id: roman_tomato2_example
+data_root: data/scenes/roman_tomato2_example
+capture_config: configs/capture/camera_01.yaml
+frame_sampling_config: configs/preprocessing/video_sampling_roman_tomato2_example.yaml
+colmap_config: configs/colmap/default.yaml
+alignment_config: configs/alignment/roman_tomato2_example_36h11.yaml
+training_configs:
+  threedgrut: configs/training/3dgrut_roman_tomato2_example_smoke.yaml
+simulation_asset_config: configs/simulation/roman_tomato2_example_asset.yaml
+
+# This example exercises the currently implemented mask-free pipeline.
+mask_free_pipeline: true

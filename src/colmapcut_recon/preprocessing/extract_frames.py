@@ -42,6 +42,7 @@ class FrameSamplingConfig:
     jpeg_qscale: int = 2
     filename_prefix: str = "frame_"
     filename_digits: int = 6
+    probe_mode: str = "frames"
 
     def __post_init__(self) -> None:
         if self.method not in {"interval_seconds", "every_n_frames", "target_count"}:
@@ -71,6 +72,8 @@ class FrameSamplingConfig:
             raise ValueError("filename_prefix must be a non-empty filename prefix")
         if self.filename_digits < 1:
             raise ValueError("filename_digits must be positive")
+        if self.probe_mode not in {"frames", "metadata"}:
+            raise ValueError("probe_mode must be frames or metadata")
 
     @classmethod
     def from_mapping(cls, raw: dict[str, Any]) -> FrameSamplingConfig:
@@ -93,6 +96,7 @@ class FrameSamplingConfig:
             jpeg_qscale=int(raw.get("jpeg_qscale", 2)),
             filename_prefix=str(raw.get("filename_prefix", "frame_")),
             filename_digits=int(raw.get("filename_digits", 6)),
+            probe_mode=str(raw.get("probe_mode", "frames")),
         )
 
 
@@ -107,8 +111,15 @@ def _parse_rate(value: str | None) -> float | None:
     return result if math.isfinite(result) and result > 0 else None
 
 
-def probe_video(video: Path, ffprobe: Path) -> dict[str, Any]:
-    """Read stream metadata and per-frame presentation timestamps with ffprobe."""
+def probe_video(
+    video: Path, ffprobe: Path, *, per_frame: bool = True
+) -> dict[str, Any]:
+    """Read video timing metadata, optionally including every frame timestamp.
+
+    ``per_frame=False`` is intended for large constant-frame-rate captures. It
+    synthesizes stable source indices from the reported frame count, duration,
+    and average frame rate instead of making ffprobe scan the entire file.
+    """
 
     video = video.expanduser().resolve()
     ffprobe = ffprobe.expanduser().resolve()
@@ -116,6 +127,12 @@ def probe_video(video: Path, ffprobe: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"Input video does not exist: {video}")
     if not ffprobe.is_file():
         raise FileNotFoundError(f"ffprobe executable does not exist: {ffprobe}")
+    entries = (
+        "stream=index,codec_name,width,height,avg_frame_rate,r_frame_rate,"
+        "time_base,start_time,duration,nb_frames:format=duration"
+    )
+    if per_frame:
+        entries += ":frame=best_effort_timestamp_time,pts_time,pkt_duration_time,key_frame"
     command = [
         str(ffprobe),
         "-v",
@@ -123,11 +140,7 @@ def probe_video(video: Path, ffprobe: Path) -> dict[str, Any]:
         "-select_streams",
         "v:0",
         "-show_entries",
-        (
-            "stream=index,codec_name,width,height,avg_frame_rate,r_frame_rate,"
-            "time_base,duration,nb_frames:format=duration:"
-            "frame=best_effort_timestamp_time,pts_time,pkt_duration_time,key_frame"
-        ),
+        entries,
         "-of",
         "json",
         str(video),
@@ -142,25 +155,53 @@ def probe_video(video: Path, ffprobe: Path) -> dict[str, Any]:
         stream.get("r_frame_rate")
     )
     frames: list[VideoFrame] = []
-    for index, raw_frame in enumerate(payload.get("frames", [])):
-        timestamp_text = raw_frame.get("best_effort_timestamp_time") or raw_frame.get(
-            "pts_time"
-        )
-        if timestamp_text is None:
-            if average_fps is None:
-                raise ValueError(
-                    f"Frame {index} has no timestamp and stream FPS is unavailable"
-                )
-            timestamp = index / average_fps
-        else:
-            timestamp = float(timestamp_text)
-        frames.append(
-            VideoFrame(
-                source_frame_index=index,
-                timestamp_seconds=timestamp,
-                key_frame=bool(int(raw_frame.get("key_frame", 0))),
+    if per_frame:
+        for index, raw_frame in enumerate(payload.get("frames", [])):
+            timestamp_text = raw_frame.get("best_effort_timestamp_time") or raw_frame.get(
+                "pts_time"
             )
+            if timestamp_text is None:
+                if average_fps is None:
+                    raise ValueError(
+                        f"Frame {index} has no timestamp and stream FPS is unavailable"
+                    )
+                timestamp = index / average_fps
+            else:
+                timestamp = float(timestamp_text)
+            frames.append(
+                VideoFrame(
+                    source_frame_index=index,
+                    timestamp_seconds=timestamp,
+                    key_frame=bool(int(raw_frame.get("key_frame", 0))),
+                )
+            )
+    else:
+        duration_text = stream.get("duration") or payload.get("format", {}).get(
+            "duration"
         )
+        duration = (
+            float(duration_text)
+            if duration_text not in {None, "N/A"}
+            else None
+        )
+        frame_count = (
+            int(stream["nb_frames"])
+            if stream.get("nb_frames") not in {None, "N/A"}
+            else None
+        )
+        if average_fps is None:
+            raise ValueError("Metadata probing requires a reported average frame rate")
+        if frame_count is None:
+            if duration is None:
+                raise ValueError(
+                    "Metadata probing requires nb_frames or a stream duration"
+                )
+            frame_count = max(1, round(duration * average_fps))
+        start_time = float(stream.get("start_time") or 0.0)
+        frames = [
+            VideoFrame(index, start_time + index / average_fps, key_frame=index == 0)
+            for index in range(frame_count)
+        ]
     if not frames:
         raise ValueError(f"ffprobe returned no decoded frame records for {video}")
     duration_raw = stream.get("duration") or payload.get("format", {}).get("duration")
@@ -185,6 +226,7 @@ def probe_video(video: Path, ffprobe: Path) -> dict[str, Any]:
                 else None
             ),
             "probed_frame_count": len(frames),
+            "timestamp_source": "ffprobe_frames" if per_frame else "stream_metadata",
         },
         "frames": frames,
     }
@@ -305,7 +347,7 @@ def extract_video_frames(
     if output_dir == video.parent or output_dir.is_relative_to(video):
         raise ValueError("Frame output must not overlap the source video")
 
-    probe = probe_video(video, ffprobe)
+    probe = probe_video(video, ffprobe, per_frame=config.probe_mode == "frames")
     selected = select_video_frames(probe["frames"], config)
     output_pattern_name = (
         f"{config.filename_prefix}%0{config.filename_digits}d.{config.output_format}"

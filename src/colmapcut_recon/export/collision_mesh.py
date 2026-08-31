@@ -452,7 +452,7 @@ def _open3d_validation(vertices: np.ndarray, triangles: np.ndarray) -> dict[str,
 def build_ground_collision_asset(
     *,
     ground_points_path: Path,
-    sugar_mesh_path: Path,
+    sugar_mesh_path: Path | None,
     ply_output: Path,
     obj_output: Path,
     report_output: Path,
@@ -474,21 +474,30 @@ def build_ground_collision_asset(
     reference, reference_diagnostics = fit_reference_heightfield(
         ground_points, x_grid, y_grid, config
     )
-    sugar_vertices, sugar_triangles = _read_triangle_mesh(sugar_mesh_path)
-    mesh_height, mesh_mask, raster_diagnostics = rasterize_mesh_height(
-        sugar_vertices,
-        sugar_triangles,
-        x_grid,
-        y_grid,
-        reference,
-        max_residual_m=config.max_mesh_residual_m,
-        min_vertical_normal=config.min_triangle_vertical_normal,
-    )
     surface = reference.copy()
-    surface[mesh_mask] = (
-        (1.0 - config.mesh_weight) * reference[mesh_mask]
-        + config.mesh_weight * mesh_height[mesh_mask]
-    )
+    if sugar_mesh_path is not None:
+        sugar_vertices, sugar_triangles = _read_triangle_mesh(sugar_mesh_path)
+        mesh_height, mesh_mask, raster_diagnostics = rasterize_mesh_height(
+            sugar_vertices,
+            sugar_triangles,
+            x_grid,
+            y_grid,
+            reference,
+            max_residual_m=config.max_mesh_residual_m,
+            min_vertical_normal=config.min_triangle_vertical_normal,
+        )
+        surface[mesh_mask] = (
+            (1.0 - config.mesh_weight) * reference[mesh_mask]
+            + config.mesh_weight * mesh_height[mesh_mask]
+        )
+        method = "closed_heightfield_from_ground_gaussians_and_sugar_mesh"
+    else:
+        raster_diagnostics = {
+            "used": False,
+            "reason": "No optional surface mesh was supplied",
+            "covered_nodes": 0,
+        }
+        method = "closed_heightfield_from_ground_gaussians"
     surface = _median_smooth(surface, config.smoothing_iterations)
     surface = limit_heightfield_slope(
         surface,
@@ -516,11 +525,13 @@ def build_ground_collision_asset(
     _write_triangle_mesh(ply_output, vertices, triangles)
     _write_triangle_mesh(obj_output, vertices, triangles)
     report: dict[str, Any] = {
-        "method": "closed_heightfield_from_ground_gaussians_and_sugar_mesh",
+        "method": method,
         "config": asdict(config),
         "inputs": {
             "ground_gaussians": str(ground_points_path.resolve()),
-            "sugar_mesh": str(sugar_mesh_path.resolve()),
+            "sugar_mesh": (
+                str(sugar_mesh_path.resolve()) if sugar_mesh_path is not None else None
+            ),
         },
         "grid": {
             "rows": int(len(y_grid)),
@@ -545,7 +556,11 @@ def build_ground_collision_asset(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ground-points", type=Path, required=True)
-    parser.add_argument("--sugar-mesh", type=Path, required=True)
+    parser.add_argument(
+        "--sugar-mesh",
+        type=Path,
+        help="Optional surface mesh blended with the Gaussian height field",
+    )
     parser.add_argument("--ply-output", type=Path, required=True)
     parser.add_argument("--obj-output", type=Path, required=True)
     parser.add_argument("--report-output", type=Path, required=True)

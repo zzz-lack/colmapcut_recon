@@ -6,7 +6,7 @@
 
 ## English summary
 
-COLMAP and NVIDIA 3DGRUT remain independent repositories. The project runs COLMAP as `feature_extractor → matcher → mapper`, records each invocation, and refuses to overwrite an existing reconstruction. The 3DGRUT adapter links composite images and the aligned `sparse/0` model into a standard COLMAP-style dataset, while training outputs stay under `runs/<scene>/3dgrut`.
+COLMAP and NVIDIA 3DGRUT remain independent repositories. The project runs COLMAP as `feature_extractor → matcher → mapper`, records each invocation, automatically selects the model with the most registered images when mapping produces multiple models, and refuses to overwrite an existing reconstruction. The 3DGRUT adapter links either original mask-free frames or composite images plus the aligned `sparse/0` model into a standard COLMAP-style dataset, while training outputs stay under `runs/<scene>/3dgrut`.
 
 Change repository, executable, and Python paths in `configs/tools.local.yaml`. Change COLMAP options in `configs/colmap/default.yaml` and 3DGRUT Hydra overrides in `configs/training/3dgrut.yaml`. Use `configs/tools.example.yaml` as the portable template. Preview both external commands with `--dry-run` before launching reconstruction or training.
 
@@ -40,6 +40,8 @@ runs/<scene>/3dgrut/
 
 `02_colmap_full` 是未分割的完整稀疏重建；3DGRUT 默认使用后续完成米制对齐的 `05_alignment/sparse/0`，而不是直接使用未对齐模型。训练数据只保存可复现的输入链接，任何 checkpoint、PLY 或日志都不得写入 `data/`。
 
+COLMAP 可能产生 `sparse/0`、`sparse/1` 等多个互不连通的模型。适配器读取各模型 `images.bin`/`images.txt` 的注册图像数，将最大模型记录为 `manifest.json` 的 `output.primary_model`；后续一键流水线读取该字段，不再固定使用 `sparse/0`。
+
 3DGRUT 会自动寻找与图片同名的 `_mask.png`。项目默认 `load_loss_mask: false`，因此数据准备阶段会排除这些文件；需要 loss mask 时可显式传入 `--load-loss-mask`。
 
 ## 配置
@@ -59,6 +61,16 @@ threedgrut:
 COLMAP 的相机模型、匹配器、GPU 开关与各阶段额外参数在 `configs/colmap/default.yaml` 中配置。3DGRUT 的 Hydra app、背景色、降采样、PLY 导出和额外覆盖项在 `configs/training/3dgrut.yaml` 中配置。
 
 ## 调用
+
+无遮罩的一键可恢复调用（跳过 `03_masks`、`04_colmap_foreground` 和 `06_composite`，并继续生成仿真 USDZ）为：
+
+```bash
+uv run --extra alignment python scripts/run_pipeline.py \
+  --scene-config configs/scenes/fruit_tomato.yaml \
+  --video /home/linzz/Desktop/simple_photo_capture/video/fruit_tomato.mp4
+```
+
+默认 `--resume` 会验证并跳过已有成功阶段；可用 `--no-resume` 请求重跑。总清单写入场景数据根目录的 `pipeline_manifest.json`，最终 USDZ 位于 `11_simulation_asset`。
 
 先用 `--dry-run` 完成路径预检并查看不会经过 shell 插值的实际命令：
 
@@ -86,3 +98,15 @@ COLMAP 的相机模型、匹配器、GPU 开关与各阶段额外参数在 `conf
 ```
 
 所有脚本都支持 `--scene-config`，也可用 `--images`、`--output`、`--dataset-root`、`--sparse-model`、`--repository` 或 `--python` 临时覆盖配置。已有 COLMAP 数据库或主模型时，适配器会拒绝覆盖，以免无意破坏重建结果。
+
+## Mask-free pipeline command (English)
+
+Run all currently implemented stages with the resumable entry point:
+
+```bash
+uv run --extra alignment python scripts/run_pipeline.py \
+  --scene-config configs/scenes/fruit_tomato.yaml \
+  --video /home/linzz/Desktop/simple_photo_capture/video/fruit_tomato.mp4
+```
+
+The default `--resume` mode validates and skips completed stages. Use `--no-resume` to request re-execution; stage-level overwrite guards remain active. The scene's `pipeline_manifest.json` records the overall result. If COLMAP produces multiple disconnected models, the adapter selects the one with the highest registered-image count and records it as `output.primary_model` for the alignment stage.

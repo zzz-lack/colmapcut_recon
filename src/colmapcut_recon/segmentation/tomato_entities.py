@@ -44,6 +44,8 @@ class ExtractionConfig:
     tomato_density_kg_m3: float = 850.0
     initially_kinematic: bool = True
     saga_require_ripe_colour_seed: bool = True
+    mesh_latitude_segments: int = 12
+    mesh_longitude_segments: int = 24
 
     def validate(self) -> None:
         positive = {
@@ -64,6 +66,10 @@ class ExtractionConfig:
             raise ValueError("maximum_radius_m must exceed minimum_radius_m")
         if not 0.0 <= self.opacity_minimum <= 1.0:
             raise ValueError("opacity_minimum must be in [0, 1]")
+        if self.mesh_latitude_segments < 4:
+            raise ValueError("mesh_latitude_segments must be at least 4")
+        if self.mesh_longitude_segments < 8:
+            raise ValueError("mesh_longitude_segments must be at least 8")
 
 
 @dataclass
@@ -331,6 +337,71 @@ def _write_vertex_ply(path: Path, records: np.ndarray) -> None:
     PlyData([element], text=False).write(str(path))
 
 
+def _ellipsoid_mesh(
+    radii: np.ndarray | list[float], latitude_segments: int, longitude_segments: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Create a closed local-space triangle mesh for one ellipsoid."""
+
+    radii_array = np.asarray(radii, dtype=np.float32)
+    points: list[tuple[float, float, float]] = [
+        (0.0, 0.0, float(radii_array[2]))
+    ]
+    for latitude in range(1, latitude_segments):
+        theta = math.pi * latitude / latitude_segments
+        sin_theta = math.sin(theta)
+        cos_theta = math.cos(theta)
+        for longitude in range(longitude_segments):
+            phi = 2.0 * math.pi * longitude / longitude_segments
+            points.append(
+                (
+                    float(radii_array[0] * sin_theta * math.cos(phi)),
+                    float(radii_array[1] * sin_theta * math.sin(phi)),
+                    float(radii_array[2] * cos_theta),
+                )
+            )
+    south = len(points)
+    points.append((0.0, 0.0, -float(radii_array[2])))
+
+    faces: list[tuple[int, int, int]] = []
+    first_ring = 1
+    for longitude in range(longitude_segments):
+        current = first_ring + longitude
+        following = first_ring + (longitude + 1) % longitude_segments
+        faces.append((0, following, current))
+    for latitude in range(latitude_segments - 2):
+        current_ring = 1 + latitude * longitude_segments
+        next_ring = current_ring + longitude_segments
+        for longitude in range(longitude_segments):
+            current = current_ring + longitude
+            following = current_ring + (longitude + 1) % longitude_segments
+            below = next_ring + longitude
+            below_following = next_ring + (longitude + 1) % longitude_segments
+            faces.extend(
+                (
+                    (current, following, below_following),
+                    (current, below_following, below),
+                )
+            )
+    last_ring = 1 + (latitude_segments - 2) * longitude_segments
+    for longitude in range(longitude_segments):
+        current = last_ring + longitude
+        following = last_ring + (longitude + 1) % longitude_segments
+        faces.append((south, current, following))
+    return np.asarray(points, dtype=np.float32), np.asarray(faces, dtype=np.int32)
+
+
+def _write_triangle_ply(path: Path, vertices: np.ndarray, triangles: np.ndarray) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    vertex = np.empty(len(vertices), dtype=[("x", "<f4"), ("y", "<f4"), ("z", "<f4")])
+    vertex["x"], vertex["y"], vertex["z"] = vertices.T
+    face = np.empty(len(triangles), dtype=[("vertex_indices", "O")])
+    face["vertex_indices"] = [np.asarray(values, dtype=np.int32) for values in triangles]
+    PlyData(
+        [PlyElement.describe(vertex, "vertex"), PlyElement.describe(face, "face")],
+        text=False,
+    ).write(str(path))
+
+
 def _combine_static_plant_and_ground(
     plant_vertex: np.ndarray,
     ground_ply: Path,
@@ -358,7 +429,13 @@ def _format_tuple(values: list[float] | np.ndarray) -> str:
     return ", ".join(f"{float(value):.9g}" for value in values)
 
 
-def _write_usda(path: Path, entities: list[TomatoEntity], kinematic: bool) -> None:
+def _write_usda(
+    path: Path,
+    entities: list[TomatoEntity],
+    kinematic: bool,
+    latitude_segments: int,
+    longitude_segments: int,
+) -> None:
     lines = [
         "#usda 1.0",
         "(",
@@ -373,7 +450,8 @@ def _write_usda(path: Path, entities: list[TomatoEntity], kinematic: bool) -> No
         "    {",
         '        def Material "TomatoMaterial"',
         "        {",
-        '            token outputs:surface.connect = </TomatoEntities/Looks/TomatoMaterial/PreviewSurface.outputs:surface>',
+        "            token outputs:surface.connect = "
+        "</TomatoEntities/Looks/TomatoMaterial/PreviewSurface.outputs:surface>",
         '            def Shader "PreviewSurface"',
         "            {",
         '                uniform token info:id = "UsdPreviewSurface"',
@@ -386,10 +464,17 @@ def _write_usda(path: Path, entities: list[TomatoEntity], kinematic: bool) -> No
     ]
     for entity in entities:
         center = _format_tuple(entity.center_m)
-        radii = _format_tuple(entity.radii_m)
         quat = entity.orientation_wxyz
         stem = _format_tuple(entity.stem_anchor_m)
         collider_radius = max(entity.radii_m)
+        mesh_points, mesh_faces = _ellipsoid_mesh(
+            entity.radii_m, latitude_segments, longitude_segments
+        )
+        point_text = ", ".join(
+            f"({x:.9g}, {y:.9g}, {z:.9g})" for x, y, z in mesh_points
+        )
+        count_text = ", ".join("3" for _ in mesh_faces)
+        index_text = ", ".join(str(int(value)) for value in mesh_faces.ravel())
         lines.extend(
             [
                 "",
@@ -398,7 +483,8 @@ def _write_usda(path: Path, entities: list[TomatoEntity], kinematic: bool) -> No
                 "    )",
                 "    {",
                 f"        double3 xformOp:translate = ({center})",
-                f"        quatf xformOp:orient = ({quat[0]:.9g}, {quat[1]:.9g}, {quat[2]:.9g}, {quat[3]:.9g})",
+                "        quatf xformOp:orient = "
+                f"({quat[0]:.9g}, {quat[1]:.9g}, {quat[2]:.9g}, {quat[3]:.9g})",
                 '        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient"]',
                 f"        bool physics:kinematicEnabled = {str(kinematic).lower()}",
                 f"        float physics:mass = {entity.mass_kg:.9g}",
@@ -406,13 +492,14 @@ def _write_usda(path: Path, entities: list[TomatoEntity], kinematic: bool) -> No
                 f"        double3 tomato:stemAnchor = ({stem})",
                 f'        string tomato:instanceId = "{entity.identifier}"',
                 "",
-                '        def Sphere "Visual" (',
+                '        def Mesh "Visual" (',
                 '            prepend apiSchemas = ["MaterialBindingAPI"]',
                 "        )",
                 "        {",
-                "            double radius = 1",
-                f"            float3 xformOp:scale = ({radii})",
-                '            uniform token[] xformOpOrder = ["xformOp:scale"]',
+                f"            point3f[] points = [{point_text}]",
+                f"            int[] faceVertexCounts = [{count_text}]",
+                f"            int[] faceVertexIndices = [{index_text}]",
+                '            uniform token subdivisionScheme = "none"',
                 '            rel material:binding = </TomatoEntities/Looks/TomatoMaterial>',
                 "        }",
                 "",
@@ -438,6 +525,7 @@ def extract_tomato_entities(
     saga_mask_source_ply: Path | None = None,
     ground_gaussian_ply: Path | None = None,
     config: ExtractionConfig | None = None,
+    overwrite: bool = False,
 ) -> dict[str, Any]:
     """Extract tomato instances and write Gaussian plus USD deliverables."""
 
@@ -445,6 +533,20 @@ def extract_tomato_entities(
     config.validate()
     gaussian_ply = Path(gaussian_ply).resolve()
     output_directory = Path(output_directory).resolve()
+    expected_outputs = [
+        output_directory / "tomato_instances.json",
+        output_directory / "tomato_entities.usda",
+        output_directory / "tomatoes_combined.ply",
+        output_directory / "plant_without_tomatoes.ply",
+    ]
+    if ground_gaussian_ply is not None:
+        expected_outputs.append(output_directory / "static_scene_without_tomatoes.ply")
+    existing = [str(path) for path in expected_outputs if path.exists()]
+    if existing and not overwrite:
+        raise FileExistsError(
+            "Tomato entity outputs already exist; pass overwrite=True: "
+            + ", ".join(existing)
+        )
     output_directory.mkdir(parents=True, exist_ok=True)
 
     vertex = _load_vertex(gaussian_ply)
@@ -526,10 +628,14 @@ def extract_tomato_entities(
     combined_entity_mask = np.zeros(len(vertex), dtype=bool)
     gaussian_directory = output_directory / "gaussians"
     gaussian_directory.mkdir(parents=True, exist_ok=True)
+    mesh_directory = output_directory / "meshes"
+    mesh_directory.mkdir(parents=True, exist_ok=True)
     # Parameter sweeps can produce fewer instances than a previous run.  Only
     # remove this exporter\'s numbered outputs so the directory remains an
     # exact representation of the current manifest without touching user data.
     for stale_path in gaussian_directory.glob("tomato_[0-9][0-9][0-9].ply"):
+        stale_path.unlink()
+    for stale_path in mesh_directory.glob("tomato_[0-9][0-9][0-9].ply"):
         stale_path.unlink()
     for index, (component, center, radii, axes) in enumerate(accepted, start=1):
         identifier = f"tomato_{index:03d}"
@@ -543,6 +649,12 @@ def extract_tomato_entities(
         entity_xyz = xyz[entity_mask]
         entity_rgb = rgb[entity_mask]
         _write_vertex_ply(gaussian_directory / f"{identifier}.ply", vertex[entity_mask])
+        mesh_vertices, mesh_triangles = _ellipsoid_mesh(
+            radii, config.mesh_latitude_segments, config.mesh_longitude_segments
+        )
+        _write_triangle_ply(
+            mesh_directory / f"{identifier}.ply", mesh_vertices, mesh_triangles
+        )
         quaternion = _rotation_matrix_to_quaternion(axes)
         stem_anchor = center.copy()
         stem_anchor[2] += float(radii[np.argmax(np.abs(axes[2, :]))])
@@ -584,12 +696,16 @@ def extract_tomato_entities(
             "source": str(ground_gaussian_ply),
             "source_gaussians": ground_count,
             "plant_ground_xyz_overlap_removed": overlap_count,
-            "combined_gaussians": len(vertex) - int(removal_mask.sum()) + ground_count - overlap_count,
+            "combined_gaussians": (
+                len(vertex) - int(removal_mask.sum()) + ground_count - overlap_count
+            ),
         }
     _write_usda(
         output_directory / "tomato_entities.usda",
         entities,
         config.initially_kinematic,
+        config.mesh_latitude_segments,
+        config.mesh_longitude_segments,
     )
     manifest: dict[str, Any] = {
         "schema_version": 1,
@@ -615,6 +731,7 @@ def extract_tomato_entities(
             "combined_tomato_gaussians": str(output_directory / "tomatoes_combined.ply"),
             "static_plant_gaussians": str(output_directory / "plant_without_tomatoes.ply"),
             "per_instance_directory": str(gaussian_directory),
+            "per_instance_mesh_directory": str(mesh_directory),
             "static_scene_gaussians": (
                 str(static_scene_path) if static_scene_path is not None else None
             ),

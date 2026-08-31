@@ -17,6 +17,9 @@ from colmapcut_recon.export.nurec_asset import (  # noqa: E402
     isaac_sim_major_version,
     validate_nurec_collision_usdz,
 )
+from colmapcut_recon.export.compose_simulation_asset import (  # noqa: E402
+    compose_simulation_usdz,
+)
 
 
 def _make_mock_nurec_package(path: Path) -> None:
@@ -75,3 +78,37 @@ def test_validates_nurec_volume_and_invisible_collision(tmp_path: Path) -> None:
     assert report["volume_prims"] == ["/World/gauss"]
     assert report["collision_mesh_prims"] == ["/World/mesh"]
     assert report["invisible_collision_mesh_prims"] == ["/World/mesh"]
+
+
+def test_composes_nurec_ground_and_dynamic_fruit_mesh(tmp_path: Path) -> None:
+    environment = tmp_path / "environment.usdz"
+    _make_mock_nurec_package(environment)
+    fruit_layer = tmp_path / "fruits.usda"
+    stage = Usd.Stage.CreateNew(str(fruit_layer))
+    root = UsdGeom.Xform.Define(stage, "/TomatoEntities").GetPrim()
+    stage.SetDefaultPrim(root)
+    fruit = UsdGeom.Xform.Define(stage, "/TomatoEntities/tomato_001").GetPrim()
+    UsdPhysics.RigidBodyAPI.Apply(fruit)
+    visual = UsdGeom.Mesh.Define(stage, "/TomatoEntities/tomato_001/Visual")
+    visual.CreatePointsAttr(Vt.Vec3fArray([(0, 0, 0.1), (-0.1, 0, 0), (0.1, 0, 0)]))
+    visual.CreateFaceVertexCountsAttr(Vt.IntArray([3]))
+    visual.CreateFaceVertexIndicesAttr(Vt.IntArray([0, 1, 2]))
+    collision = UsdGeom.Sphere.Define(stage, "/TomatoEntities/tomato_001/Collision")
+    UsdPhysics.CollisionAPI.Apply(collision.GetPrim())
+    stage.GetRootLayer().Save()
+
+    output = tmp_path / "simulation.usdz"
+    manifest = compose_simulation_usdz(
+        environment_usdz=environment,
+        fruit_entities_usd=fruit_layer,
+        output_usdz=output,
+        manifest_output=tmp_path / "manifest.json",
+    )
+
+    assert manifest["validation"]["passed"] is True
+    assert manifest["validation"]["fruit_mesh_prims"] == [
+        "/World/Fruits/tomato_001/Visual"
+    ]
+    assert manifest["validation"]["rigid_body_prims"] == [
+        "/World/Fruits/tomato_001"
+    ]

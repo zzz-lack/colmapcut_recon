@@ -1,0 +1,26 @@
+[paths]
+# Pipeline calls override these paths. They remain explicit for standalone use.
+gaussian_ply = "data/scenes/roman_tomato2_example/08_asset_separation/plant_gaussians.ply"
+saga_mask = ""
+saga_mask_source_ply = ""
+ground_gaussian_ply = "data/scenes/roman_tomato2_example/08_asset_separation/ground_gaussians.ply"
+output_directory = "data/scenes/roman_tomato2_example/10_fruit_entities"
+
+[extraction]
+voxel_size_m = 0.035
+minimum_seed_points = 3
+minimum_entity_points = 8
+maximum_component_span_m = 0.16
+minimum_radius_m = 0.015
+maximum_radius_m = 0.075
+ellipsoid_padding_m = 0.010
+removal_scale = 1.10
+opacity_minimum = 0.05
+red_minimum = 0.48
+red_margin = 0.16
+minimum_height_m = 0.08
+tomato_density_kg_m3 = 850.0
+initially_kinematic = true
+saga_require_ripe_colour_seed = true
+mesh_latitude_segments = 12
+mesh_longitude_segments = 24

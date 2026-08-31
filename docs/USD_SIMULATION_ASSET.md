@@ -6,14 +6,26 @@
 
 ## 中文概述
 
-`scripts/11_export_simulation_asset.py` 将组合后的植物/地面 3DGS PLY 与闭合地面碰撞网格打包为 Isaac Sim 5.x 可用的 NVIDIA NuRec USDZ。包内包含可渲染的 NuRec volume、标准 PhysX 静态三角网格碰撞和用于追溯的 mesh PLY。
+当前胶水流水线依次完成后训练背景分离、地面高斯提取、闭合地面碰撞网格、果实三角 mesh/刚体生成、静态 NuRec 环境导出和最终组合 USDZ。包内包含可渲染的 NuRec volume、标准静态地面碰撞、动态果实 mesh、质量、运动学状态与碰撞代理。
 
 该流程使用 NVIDIA 3DGRUT 的转码工具；在 `configs/tools.local.yaml` 修改 `threedgrut.repository` 和 `threedgrut.python`。输入与输出资产路径通过 CLI 参数或场景配置传入。Isaac Sim/OpenUSD 属于独立外部运行时。
 
+完整调用：
+
+```bash
+uv run --extra alignment python scripts/run_pipeline.py \
+  --video /home/linzz/Desktop/simple_photo_capture/video/fruit_tomato.mp4
+```
+
+后处理参数在 `configs/simulation/fruit_tomato_asset.yaml`，果实实例参数在 `configs/segmentation/fruit_tomato_entities.toml`。最终文件为 `data/scenes/fruit_tomato/11_simulation_asset/fruit_tomato_simulation.usdz`。
+
+Isaac Sim 5.x 可使用全部 NuRec 视觉和 USD Physics。Genesis 可使用标准地面/果实 mesh 与物理属性，但通常不会渲染 NVIDIA 专用 NuRec volume；若 Genesis 需要植物本体的标准 mesh，还需额外增加植物表面重建阶段。
+
 ## English details
 
-`scripts/11_export_simulation_asset.py` packages the combined plant/ground 3DGS PLY and
-the closed ground collision mesh into an Isaac Sim 5.x-compatible NVIDIA NuRec USDZ.
+The glue pipeline now performs post-training background separation, ground-Gaussian
+extraction, closed ground collision meshing, fruit triangle-mesh/rigid-body generation,
+static NuRec export, and final USDZ composition.
 
 The converter uses the local NVIDIA 3DGRUT `transcode` and mesh-injection tools. The
 lightweight transcode path avoids initializing the CUDA/Slang training renderer. The
@@ -22,6 +34,20 @@ final USDZ contains:
 - a NuRec `UsdVol.Volume` and `.nurec` payload rendered by Omniverse RTX;
 - `mesh.usd` with standard `UsdPhysics.CollisionAPI` and exact static mesh collision;
 - `mesh.ply`, retained inside the package for traceability.
+- standard dynamic fruit meshes with mass, kinematic state, and collision proxies.
+
+Run the complete video-to-simulation-asset path with:
+
+```bash
+uv run --extra alignment python scripts/run_pipeline.py \
+  --video /home/linzz/Desktop/simple_photo_capture/video/fruit_tomato.mp4
+```
+
+The final package is `data/scenes/fruit_tomato/11_simulation_asset/fruit_tomato_simulation.usdz`.
+Isaac Sim 5.x can use both NuRec rendering and USD Physics. Genesis can consume the
+standard ground/fruit meshes and physics metadata, but generally ignores the
+NVIDIA-specific NuRec volume. A standard plant mesh requires a separate surface
+reconstruction stage if Genesis must render the plant itself.
 
 Run the current Roman tomato asset export with:
 

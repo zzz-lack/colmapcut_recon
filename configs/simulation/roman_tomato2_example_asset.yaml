@@ -1,0 +1,45 @@
+version: 1
+scene_id: roman_tomato2_example
+
+# All values are metres in the AprilTag-aligned Z-up frame.
+separation:
+  output_stage: 08_asset_separation
+  x_bounds_m: [-1.0, 1.0]
+  y_bounds_m: [-1.0, 1.0]
+  z_bounds_m: [-0.15, 1.6]
+  opacity_minimum: 0.02
+  heightfield:
+    grid_size_m: 0.05
+    initial_ground_height_m: 0.0
+    surface_quantile: 0.15
+    max_slope_degrees: 35.0
+    seed_tolerance_steps: 2.0
+    smoothing_iterations: 2
+    ground_band_quantile: 0.90
+    ground_band_mad_multiplier: 3.0
+    gaussian_sigma_multiplier: 4.0
+    max_sigma_to_band_ratio: 2.0
+    min_points_per_cell: 2
+
+ground_collision:
+  output_stage: 09_ground_collision
+  x_bounds_m: [-1.0, 1.0]
+  y_bounds_m: [-1.0, 1.0]
+  grid_size_m: 0.05
+  initial_ground_height_m: 0.0
+  max_slope_degrees: 35.0
+  min_points_per_node: 1
+  smoothing_iterations: 2
+  bottom_offset_m: 0.04
+
+fruits:
+  config: configs/segmentation/roman_tomato2_example_entities.toml
+  output_stage: 10_fruit_entities
+  selection: ripe_colour_bootstrap
+
+export:
+  output_stage: 11_simulation_asset
+  environment_usdz: roman_tomato2_example_environment.usdz
+  combined_usdz: roman_tomato2_example_simulation.usdz
+  isaac_version_file: /home/linzz/isaacsim/VERSION
+  collision_visible: false

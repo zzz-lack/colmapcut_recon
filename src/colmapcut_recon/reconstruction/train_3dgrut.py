@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,26 @@ BACKGROUND_NAMES = {
     (0.0, 0.0, 0.0): "black",
     (1.0, 1.0, 1.0): "white",
 }
+
+
+def _python_environment(python: Path) -> tuple[dict[str, str], dict[str, str | None]]:
+    """Build an execution environment that exposes venv-provided CLI tools."""
+
+    environment = os.environ.copy()
+    path_prefix = str(python.parent)
+    existing_path = environment.get("PATH", "")
+    environment["PATH"] = (
+        path_prefix if not existing_path else path_prefix + os.pathsep + existing_path
+    )
+    virtual_environment = python.parent.parent
+    virtual_environment_text: str | None = None
+    if (virtual_environment / "pyvenv.cfg").is_file():
+        virtual_environment_text = str(virtual_environment)
+        environment["VIRTUAL_ENV"] = virtual_environment_text
+    return environment, {
+        "path_prepend": path_prefix,
+        "virtual_env": virtual_environment_text,
+    }
 
 
 def _background_name(value: Any) -> str:
@@ -80,7 +101,10 @@ def train_3dgrut(
 ) -> dict[str, object]:
     """Validate, record, and optionally execute external 3DGRUT training."""
 
-    python = python.expanduser().resolve()
+    # Keep the virtual-environment entry path intact. Resolving a symlink such
+    # as ``.venv/bin/python`` to its base interpreter bypasses ``pyvenv.cfg``
+    # and silently drops the environment's installed packages.
+    python = python.expanduser().absolute()
     repository = repository.expanduser().resolve()
     dataset_root = dataset_root.expanduser().resolve()
     run_dir = run_dir.expanduser().resolve()
@@ -100,6 +124,7 @@ def train_3dgrut(
         run_dir=run_dir,
         config=config,
     )
+    runtime_environment, environment_record = _python_environment(python)
     manifest: dict[str, object] = {
         "adapter": "colmapcut_recon.3dgrut",
         "dry_run": dry_run,
@@ -109,6 +134,7 @@ def train_3dgrut(
         "output_root": str(run_dir),
         "command": command,
         "command_text": format_command(command),
+        "environment": environment_record,
     }
     if dry_run:
         return manifest
@@ -116,7 +142,12 @@ def train_3dgrut(
     run_dir.mkdir(parents=True, exist_ok=True)
     before = {path.resolve() for path in run_dir.iterdir() if path.is_dir()}
     invocation_path = run_dir / "last_invocation.json"
-    run_command(command, cwd=repository, record_path=run_dir / "last_process.json")
+    run_command(
+        command,
+        cwd=repository,
+        env=runtime_environment,
+        record_path=run_dir / "last_process.json",
+    )
     after = {path.resolve() for path in run_dir.iterdir() if path.is_dir()}
     manifest["new_run_directories"] = [str(path) for path in sorted(after - before)]
     manifest["invocation_manifest"] = str(invocation_path)

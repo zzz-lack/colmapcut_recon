@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import struct
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -117,6 +118,65 @@ def build_colmap_commands(
     ]
 
 
+def registered_image_count(model_dir: Path) -> int:
+    """Return the number of registered images in a COLMAP model."""
+
+    binary_path = model_dir / "images.bin"
+    if binary_path.is_file():
+        with binary_path.open("rb") as handle:
+            header = handle.read(8)
+        if len(header) != 8:
+            raise ValueError(f"Invalid COLMAP images.bin header: {binary_path}")
+        return int(struct.unpack("<Q", header)[0])
+
+    text_path = model_dir / "images.txt"
+    if text_path.is_file():
+        lines = [
+            line
+            for line in text_path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        # COLMAP writes two lines per registered image. The second line may be
+        # empty, so identify pose records by their integer IMAGE_ID/CAMERA_ID.
+        count = 0
+        for line in lines:
+            fields = line.split()
+            if len(fields) < 10:
+                continue
+            try:
+                int(fields[0])
+                for value in fields[1:8]:
+                    float(value)
+                int(fields[8])
+            except ValueError:
+                continue
+            count += 1
+        return count
+
+    raise FileNotFoundError(f"COLMAP model has no images.bin or images.txt: {model_dir}")
+
+
+def select_primary_model(sparse_dir: Path) -> tuple[Path, list[dict[str, object]]]:
+    """Select the reconstruction containing the most registered images."""
+
+    models: list[tuple[Path, int]] = []
+    for model_dir in sorted(path for path in sparse_dir.iterdir() if path.is_dir()):
+        try:
+            count = registered_image_count(model_dir)
+        except FileNotFoundError:
+            continue
+        models.append((model_dir, count))
+    if not models:
+        raise RuntimeError(f"COLMAP mapper produced no readable models in {sparse_dir}")
+
+    primary, _ = max(models, key=lambda item: item[1])
+    summary = [
+        {"path": str(model_dir), "registered_images": count}
+        for model_dir, count in models
+    ]
+    return primary, summary
+
+
 def run_colmap_sparse(
     *,
     executable: Path,
@@ -180,14 +240,9 @@ def run_colmap_sparse(
             command,
             record_path=logs_dir / f"{index:02d}_{command[1]}.json",
         )
-    if not model_zero.is_dir():
-        models = sorted(
-            path for path in (output_dir / "sparse").iterdir() if path.is_dir()
-        )
-        raise RuntimeError(
-            "COLMAP mapper did not produce sparse/0. "
-            f"Models found: {[str(path) for path in models]}"
-        )
+    primary_model, model_summary = select_primary_model(output_dir / "sparse")
+    manifest["output"]["primary_model"] = str(primary_model)
+    manifest["output"]["models"] = model_summary
     manifest_path = output_dir / "manifest.json"
     manifest["manifest"] = str(manifest_path)
     manifest_path.write_text(
