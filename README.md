@@ -107,6 +107,24 @@ COLMAP 与 3DGRUT 已通过参数安全的适配脚本接入：COLMAP 分阶段�
 - `data/` 保存输入及确定性的中间数据，`runs/` 保存训练结果，`outputs/` 保存交付资产。
 - 未列入 `configs/pipeline_no_masks.yaml` 的占位脚本不能视为已实现阶段。
 
+## 机器人 URDF
+
+用于 Isaac Sim/机器人仿真的组合移动机械臂已经包含在仓库中：
+
+- [`assets/robots/mobile_manipulator/urdf/combined_mobile.urdf`](assets/robots/mobile_manipulator/urdf/combined_mobile.urdf)：当前修复后的组合机器人入口。
+- [`assets/robots/mobile_manipulator/urdf/combined_source.urdf`](assets/robots/mobile_manipulator/urdf/combined_source.urdf)：原始展开 URDF 的只读副本。
+- [`assets/robots/mobile_manipulator/urdf/combined_source.urdf.xacro`](assets/robots/mobile_manipulator/urdf/combined_source.urdf.xacro)：组合 Xacro 来源。
+- `assets/robots/mobile_manipulator/urdf/uie_description/`：Lite6 机械臂的 visual/collision mesh。
+- `assets/robots/mobile_manipulator/urdf/terrasentia_gazebo/`：TerraSentia 底盘及传感器 mesh，作为 Git 子模块引用。
+
+克隆后需要初始化子模块，才能取得底盘的完整 mesh 依赖：
+
+```bash
+git submodule update --init --recursive
+```
+
+机器人结构、Isaac Sim 导入约定及路径配置见 [assets/robots/mobile_manipulator/README.md](assets/robots/mobile_manipulator/README.md)。
+
 ## 已实现：现有高斯的地面资产组装
 
 `scripts/12_assemble_ground_asset.py` 可以处理已经完成米制对齐的高斯场景。默认的 `adaptive_heightfield` 方法只限制 XY 范围，不使用全局 Z 厚度：它按网格估计连续局部地面高度，通过最大坡度传播和填洞适应起伏，并结合局部重建带宽与每个高斯的旋转/尺度判断高斯是否接触地面。植物和地面在组合时执行精确 XYZ 并集去重，不再预先删除整个分割集合。旧的固定厚度行为仍可用 `--ground-method slab` 复现。所有外部输入均只读，参数记录在 `configs/scenes/roman_tomato_02.yaml`。
@@ -168,6 +186,24 @@ world_point = scale * rotation * colmap_point + translation
 10. Write cleaned Gaussians, PLY/USD assets, previews, and metrics under `outputs/<scene>`.
 
 Raw capture data is read-only. Deterministic intermediate data belongs under `data`, training artifacts under `runs`, and deliverable assets under `outputs`.
+
+### Robot URDF
+
+The combined mobile manipulator used for Isaac Sim and robot simulation is included in the repository:
+
+- [`assets/robots/mobile_manipulator/urdf/combined_mobile.urdf`](assets/robots/mobile_manipulator/urdf/combined_mobile.urdf): current repaired combined-robot entry point.
+- [`assets/robots/mobile_manipulator/urdf/combined_source.urdf`](assets/robots/mobile_manipulator/urdf/combined_source.urdf): read-only copy of the original expanded URDF.
+- [`assets/robots/mobile_manipulator/urdf/combined_source.urdf.xacro`](assets/robots/mobile_manipulator/urdf/combined_source.urdf.xacro): combined Xacro source.
+- `assets/robots/mobile_manipulator/urdf/uie_description/`: Lite6 visual and collision meshes.
+- `assets/robots/mobile_manipulator/urdf/terrasentia_gazebo/`: TerraSentia chassis and sensor meshes, referenced as a Git submodule.
+
+Initialize the submodule after cloning so all chassis mesh dependencies are present:
+
+```bash
+git submodule update --init --recursive
+```
+
+See [the robot asset guide](assets/robots/mobile_manipulator/README.md) for structure, Isaac Sim import conventions, and path configuration.
 
 ### External tools and paths
 
